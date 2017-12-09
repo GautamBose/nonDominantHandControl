@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import java.util.ArrayList;
+
 import processing.core.PApplet;
 import processing.android.PFragment;
 import processing.android.CompatUtils;
@@ -49,8 +51,10 @@ public class mainCanvas extends AppCompatActivity {
 
 
 class Sketch extends PApplet {
+    Tool tool;
     public void settings() {
         fullScreen();
+        tool = new Tool();
 //        background(255);
     }
 
@@ -58,6 +62,7 @@ class Sketch extends PApplet {
 
     public void draw() {
         background(255);
+        tool.drawTool();
 //        for (int i = 0; i < touches.length; i++) {
 //            float d = 100;
 //            fill(0, 255 * touches[i].pressure);
@@ -72,25 +77,73 @@ class Sketch extends PApplet {
 
     }
 
+    @Override
+    public void mouseDragged() {
+        super.mouseDragged();
+//        @todo add some checking here for when the pen is down
+    }
+
+    class ToolButton {
+        float x, y, radius;
+
+        ToolButton(int x, int y, int radius) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+        }
+
+        boolean isOver(float mx, float my) {
+            boolean isOver;
+            float distance = this.distance(mx, my, this.x, this.y);
+            return (distance > radius);
+
+        }
+
+        void moveButton(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        float distance(float x1, float y1, float x2, float y2) {
+            return sqrt((float) (Math.pow((x1 - x2),2.0) + Math.pow((y1 - y2),2.0)));
+        }
+    }
+    class Tool {
+        private boolean isActive;
+        private float x1, y1, x2, y2;
+        private int radius1, radius2, radius3;
+
+        private ArrayList<ToolButton> buttonList;
+        Tool() {
+
+            buttonList = new ArrayList<>();
+            buttonList.add(new ToolButton(width/4, height / 4, 100));
+            buttonList.add(new ToolButton(width / 2, height / 2, 100));
+
+
+        }
+
+
+
+        void drawTool() {
+            ellipse(x1, y1, radius1, radius1);
+            line(x1,y1, x2, y2);
+            ellipse(x2, y2, radius2, radius2);
+        }
+
+        void positionTool(TouchEvent touchEvent) {
+
+        }
+
+        void isSelected() {
+            for (TouchEvent.Pointer touch: touches) {
+
+            }
+        }
+    }
+
+
+
 }
 
-class Tool {
-    private boolean isActive;
-    private float x1, y1, x2, y2;
-    private int radius1, radius2, radius3;
-    Tool() {
 
-    }
-
-    void drawTool() {
-
-    }
-
-    void positionTool(TouchEvent touchEvent) {
-
-    }
-
-    void isSelected() {
-
-    }
-}
