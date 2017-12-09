@@ -52,7 +52,7 @@ public class mainCanvas extends AppCompatActivity {
 
 
 class Sketch extends PApplet {
-    Tool tool;
+    private Tool tool;
 
     public void settings() {
         fullScreen();
@@ -93,18 +93,18 @@ class Sketch extends PApplet {
         if (tool.numFingsInTool() == 2) {
             tool.makeThirdButtonAvaliable();
         }
-
-        tool.setActiveButtons();
+        tool.setActiveButtons(true);
     }
 
     @Override
     public void touchEnded() {
-//        println(touches.length);
-        println("called");
+        println("endedtouches");
+        println(touches.length);
+//        println("called");
         if (touches.length <= 2) {
             tool.removeThirdButton();
         }
-        tool.setActiveButtons();
+        tool.setActiveButtons(false);
 
     }
 
@@ -132,7 +132,6 @@ class Sketch extends PApplet {
         }
 
         boolean isOver(float mx, float my) {
-//            boolean isOver;
             float distance = this.distance(mx, my, this.x, this.y);
             return (distance < radius);
 
@@ -176,7 +175,7 @@ class Sketch extends PApplet {
         Tool() {
             buttRadius = 150;
             buttonList = new ArrayList<>();
-            buttonList.add(new ToolButton(100, 200, buttRadius));
+            buttonList.add(new ToolButton(100, 200, buttRadius, false));
             buttonList.add(new ToolButton(500, 500, buttRadius, false));
         }
 
@@ -190,7 +189,6 @@ class Sketch extends PApplet {
         }
 
         void removeThirdButton() {
-//            println("wefwef");
             if (buttonList.size() > 2) {
                 buttonList.remove(buttonList.size() - 1);
             }
@@ -233,19 +231,24 @@ class Sketch extends PApplet {
                 for (ToolButton currButton : buttonList) {
                     if (currButton.isOver(currpointer.x, currpointer.y)) {
                         currButton.moveButton(currpointer.x, currpointer.y);
-//                        println(currButton.isActive);
                     }
 
                 }
             }
         }
 
-        public void setActiveButtons() {
+        public void setActiveButtons(boolean isTouchStarted) {
             for (ToolButton currButton: buttonList) {
                 currButton.setIsActive(false);
-                for (TouchEvent.Pointer currPointer: touches) {
+                int finalIndex = touches.length;
+                //if the call is coming from touchEnded, ignore the last element of touches because it no longer is on the screen :<
+                if (isTouchStarted == false) finalIndex--;
+
+                for (int i = 0; i <finalIndex; i++) {
+                    TouchEvent.Pointer currPointer = touches[i];
                     if (currButton.isOver(currPointer.x, currPointer.y)) {
                         currButton.setIsActive(true);
+
                         break;
                     }
                 }
