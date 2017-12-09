@@ -17,6 +17,14 @@ import processing.event.TouchEvent;
 
 import static processing.core.PVector.angleBetween;
 
+//@todo make inactive buttons follow
+//@todo visual cleanup
+//@todo code regarding pens <= break this down more
+//@todo color changing
+//@todo stroke changing
+//@todo fix placmeent of third orb
+//@todo canvas zooming and such
+//@todo finish three finger tool picker
 
 public class mainCanvas extends AppCompatActivity {
     private PApplet sketch;
@@ -171,10 +179,11 @@ class Sketch extends PApplet {
     class Tool {
         private int buttRadius;
         private ArrayList<ToolButton> buttonList;
-        private int numFingersDown;
         private ToolCircle circle;
-        private PVector initialVec, currVec, actualVec;
-        float degrees;
+        private PVector initialVec, currVec;
+        private float oldDegrees, degrees, degreesPerFrame;
+        private float t0, t1;
+        private boolean selectionActive;
 
         Tool() {
             buttRadius = 150;
@@ -182,6 +191,7 @@ class Sketch extends PApplet {
             buttonList.add(new ToolButton(100, 200, buttRadius, false));
             buttonList.add(new ToolButton(500, 500, buttRadius, false));
             circle = new ToolCircle(buttonList);
+            selectionActive = false;
         }
 
         void makeThirdButtonAvaliable() {
@@ -216,10 +226,11 @@ class Sketch extends PApplet {
 
         void drawTool() {
             int i = 0;
-            textSize(26);
+            textSize(76);
+            textAlign(LEFT, TOP);
             fill(0);
-            text("Degrees" + degrees(degrees), 20, 20);
-
+//            text("Degrees PER SECOND: " + degreesPerFrame, 20, 20);
+            rect(0,0, 100, degreesPerFrame * 100);
             for (ToolButton currButton : buttonList) {
                 currButton.render();
                 fill(255);
@@ -244,7 +255,7 @@ class Sketch extends PApplet {
                     pushMatrix();
                     translate(circle.cX, circle.cY);
                     strokeWeight(4);
-                    rotate(currVec.heading());
+                    rotate(degrees + initialVec.heading());
                     line(0, 0, 0, circle.getRenderRadius() / 2);
                     popMatrix();
 
@@ -253,15 +264,20 @@ class Sketch extends PApplet {
                     rotate(radians(90));
                     fill(0,255,0);
                     noStroke();
-
-                    if (initialVec.heading() < currVec.heading()) arc(0, 0,  circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
-                    else arc(0, 0,  circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
+                    if (selectionActive) {
+                        if (initialVec.heading() < currVec.heading())
+                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
+                        else
+                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
+                    }
                     popMatrix();
                 }
 
             }
+            else circle.resetTransparency();
         }
 
+        //for making nonactve buttons glide w/ curr button
         float[] calculateOffset(ToolButton b1, ToolButton b2) {
             float x1 = b1.getX();
             float x2 = b2.getX();
@@ -311,23 +327,40 @@ class Sketch extends PApplet {
 
             if (b == false) {
                 initialVec = new PVector((indexButton.x - thumbButton.x), (indexButton.y - thumbButton.y));
-
+                oldDegrees = initialVec.heading();
+                selectionActive = false;
 
             }
             else {
                 currVec = new PVector(indexButton.x - thumbButton.x, (indexButton.y- thumbButton.y));
-                degrees = angleBetween(initialVec, currVec);
+                degrees =  (currVec.heading() - initialVec.heading());
+
+                degreesPerFrame = abs(degrees(degrees - oldDegrees));
+//                println(degreesPerFrame);
+                if (!selectionActive) {
+                    if ((degreesPerFrame > 3 && degreesPerFrame < 50) || (degrees(degrees) > 15 || degrees(degrees) < -15)) {
+                        print("dpf");
+                        print(degreesPerFrame);
+                        print("degrees");
+                        print(degrees(degrees));
+                        selectionActive = true;
+                    }
+                }
+                oldDegrees = degrees;
             }
 
         }
     }
 
-    class ToolCircle {
+    //@todo implement easy circle for two fingers c is the mdipoint and r is the r.
+    class ToolCircle implements Runnable {
         ArrayList<ToolButton> buttonList;
         float cX, cY, x1, y1, x2, y2, x3, y3, radius, renderRadius;
+        float strokeTransparency;
         ToolCircle(ArrayList<ToolButton> buttonList) {
             this.buttonList = buttonList;
             this.calculateCircle();
+            strokeTransparency = 0;
         }
 
         private void calculateCircle() {
@@ -355,6 +388,9 @@ class Sketch extends PApplet {
 
         }
 
+        void resetTransparency() {
+            strokeTransparency = 0;
+        }
         float getcX() {
             return cX;
         }
@@ -369,9 +405,17 @@ class Sketch extends PApplet {
 
         void render() {
             noFill();
-            stroke(255,0, 0);
+            stroke(255,0, 0, strokeTransparency);
+//            strokeWeight(strokeWeight);
             renderRadius = radius * 2 + tool.getButtRadius();
             ellipse(cX, cY, renderRadius, renderRadius);
+            (new Thread(this)).start();
+        }
+
+        @Override
+        public void run() {
+            if (strokeTransparency == 255) return;
+            strokeTransparency += 10;
         }
     }
 }
