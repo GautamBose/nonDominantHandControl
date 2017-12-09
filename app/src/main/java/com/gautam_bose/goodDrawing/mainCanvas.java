@@ -72,21 +72,7 @@ class Sketch extends PApplet {
     public void draw() {
         background(255);
         tool.drawTool();
-//        tool.positionTool();
-//        for (int i = 0; i < touches.length; i++) {
-//            float d = 100;
-//            fill(0, 255 * touches[i].pressure);
-//            ellipse(touches[i].x, touches[i].y, d, d);
-//            fill(255, 0, 0);
-//            text(touches[i].id, touches[i].x, touches[i].y);
-//        }
-//        if (touches.length == 3) {
-//            line(touches[0].x, touches[0].y, touches[1].x, touches[1].y);
-//            line(touches[1].x, touches[1].y, touches[2].x, touches[2].y);
-//        }
-
     }
-
 
     @Override
     public boolean surfaceTouchEvent(MotionEvent motionEvent) {
@@ -224,6 +210,9 @@ class Sketch extends PApplet {
             return numButtonsInTool;
         }
 
+        int getButtRadius() {
+            return buttRadius;
+        }
 
         void drawTool() {
             int i = 0;
@@ -249,14 +238,24 @@ class Sketch extends PApplet {
                     translate(circle.cX, circle.cY);
                     strokeWeight(4);
                     rotate(initialVec.heading());
-                    line(0, 0, 0, 400);
+                    line(0, 0, 0, circle.getRenderRadius() / 2);
                     popMatrix();
 
                     pushMatrix();
                     translate(circle.cX, circle.cY);
                     strokeWeight(4);
                     rotate(currVec.heading());
-                    line(0, 0, 0, 400);
+                    line(0, 0, 0, circle.getRenderRadius() / 2);
+                    popMatrix();
+
+                    pushMatrix();
+                    translate(circle.cX, circle.cY);
+                    rotate(radians(90));
+                    fill(0,255,0);
+                    noStroke();
+
+                    if (initialVec.heading() < currVec.heading()) arc(0, 0,  circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
+                    else arc(0, 0,  circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
                     popMatrix();
                 }
 
@@ -325,7 +324,7 @@ class Sketch extends PApplet {
 
     class ToolCircle {
         ArrayList<ToolButton> buttonList;
-        float cX, cY, x1, y1, x2, y2, x3, y3, radius;
+        float cX, cY, x1, y1, x2, y2, x3, y3, radius, renderRadius;
         ToolCircle(ArrayList<ToolButton> buttonList) {
             this.buttonList = buttonList;
             this.calculateCircle();
@@ -364,10 +363,15 @@ class Sketch extends PApplet {
             return cY;
         }
 
+        float getRenderRadius() {
+            return renderRadius;
+        }
+
         void render() {
             noFill();
             stroke(255,0, 0);
-            ellipse(cX, cY, radius * 2 + 150, radius* 2 + 150);
+            renderRadius = radius * 2 + tool.getButtRadius();
+            ellipse(cX, cY, renderRadius, renderRadius);
         }
     }
 }
