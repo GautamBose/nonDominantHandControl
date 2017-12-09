@@ -171,12 +171,14 @@ class Sketch extends PApplet {
         private int buttRadius;
         private ArrayList<ToolButton> buttonList;
         private int numFingersDown;
+        private ToolCircle circle;
 
         Tool() {
             buttRadius = 150;
             buttonList = new ArrayList<>();
             buttonList.add(new ToolButton(100, 200, buttRadius, false));
             buttonList.add(new ToolButton(500, 500, buttRadius, false));
+            circle = new ToolCircle(buttonList);
         }
 
         void makeThirdButtonAvaliable() {
@@ -184,7 +186,7 @@ class Sketch extends PApplet {
 //                println("called");
                 ToolButton auxButton0 = buttonList.get(0);
                 ToolButton auxButton1 = buttonList.get(1);
-                buttonList.add(new ToolButton((auxButton1.x + auxButton0.x) / 2 - 200, (auxButton1.y + auxButton0.y) / 2 + 200, buttRadius, false));
+                buttonList.add(new ToolButton((auxButton1.x + auxButton0.x) / + 400, (auxButton1.y + auxButton0.y) / 2 + 200, buttRadius, false));
             }
         }
 
@@ -210,6 +212,10 @@ class Sketch extends PApplet {
         void drawTool() {
             for (ToolButton currButton : buttonList) {
                 currButton.render();
+                if (touches.length == 3) {
+                    circle.calculateCircle();
+                    circle.render();
+                }
             }
         }
 
@@ -254,6 +260,46 @@ class Sketch extends PApplet {
                 }
 
             }
+        }
+    }
+
+    class ToolCircle {
+        ArrayList<ToolButton> buttonList;
+        float cX, cY, x1, y1, x2, y2, x3, y3, radius;
+        ToolCircle(ArrayList<ToolButton> buttonList) {
+            this.buttonList = buttonList;
+            this.calculateCircle();
+        }
+
+        private void calculateCircle() {
+            //array safety
+            if (buttonList.size() < 3) return;
+
+            ToolButton b1 = buttonList.get(0);
+            ToolButton b2 = buttonList.get(1);
+            ToolButton b3 = buttonList.get(2);
+
+            x1 = b1.getX();
+            y1 = b1.getY();
+            x2 = b2.getX();
+            y2 = b2.getY();
+            x3 = b3.getX();
+            y3 = b3.getY();
+
+            float slopeA = (y2 - y1) / (x2 - x1);
+            float slopeB = (y3 - y2) / (x3 - x2);
+
+            cX = ((((slopeA * slopeB) * (y1 - y3)) + (slopeB * (x1 + x2))) - (slopeA * (x2 + x3))) / (2 * (slopeB - slopeA));
+            cY = (-1 / slopeB) * (cX - (x2 + x3)/2) + ((y3 + y2) / 2);
+
+            radius = b1.distance(cX, cY, x1, y1);
+
+        }
+
+        void render() {
+            noFill();
+            stroke(255,0, 0);
+            ellipse(cX, cY, radius * 2 + 150, radius* 2 + 150);
         }
     }
 }
