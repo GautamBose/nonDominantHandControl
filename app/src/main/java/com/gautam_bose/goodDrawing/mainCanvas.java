@@ -12,7 +12,10 @@ import java.util.ArrayList;
 import processing.core.PApplet;
 import processing.android.PFragment;
 import processing.android.CompatUtils;
+import processing.core.PVector;
 import processing.event.TouchEvent;
+
+import static processing.core.PVector.angleBetween;
 
 
 public class mainCanvas extends AppCompatActivity {
@@ -53,6 +56,7 @@ public class mainCanvas extends AppCompatActivity {
 
 class Sketch extends PApplet {
     private Tool tool;
+    boolean isCurrentGesture;
 
     public void settings() {
         fullScreen();
@@ -62,6 +66,7 @@ class Sketch extends PApplet {
     }
 
     public void setup() {
+        isCurrentGesture = false;
     }
 
     public void draw() {
@@ -82,9 +87,19 @@ class Sketch extends PApplet {
 
     }
 
+
     @Override
     public boolean surfaceTouchEvent(MotionEvent motionEvent) {
+
         tool.positionTool();
+        if (tool.numFingsInTool() == 3) {
+//            tool.threeFingGesture == true;
+            tool.radialActivation(isCurrentGesture);
+            isCurrentGesture = true;
+        }
+        else {
+            isCurrentGesture = false;
+        }
         return super.surfaceTouchEvent(motionEvent);
     }
 
@@ -172,6 +187,8 @@ class Sketch extends PApplet {
         private ArrayList<ToolButton> buttonList;
         private int numFingersDown;
         private ToolCircle circle;
+        private PVector initialVec, currVec, actualVec;
+        float degrees;
 
         Tool() {
             buttRadius = 150;
@@ -183,10 +200,9 @@ class Sketch extends PApplet {
 
         void makeThirdButtonAvaliable() {
             if (touches.length == 2 && buttonList.size() < 3) {
-//                println("called");
-                ToolButton auxButton0 = buttonList.get(0);
+//                ToolButton auxButton0 = buttonList.get(0);
                 ToolButton auxButton1 = buttonList.get(1);
-                buttonList.add(new ToolButton((auxButton1.x + auxButton0.x) / + 400, (auxButton1.y + auxButton0.y) / 2 + 200, buttRadius, false));
+                buttonList.add(new ToolButton(auxButton1.x, auxButton1.y + 300, buttRadius, false));
             }
         }
 
@@ -210,12 +226,40 @@ class Sketch extends PApplet {
 
 
         void drawTool() {
+            int i = 0;
+            textSize(26);
+            fill(0);
+            text("Degrees" + degrees(degrees), 20, 20);
+
             for (ToolButton currButton : buttonList) {
                 currButton.render();
-                if (touches.length == 3) {
-                    circle.calculateCircle();
-                    circle.render();
+                fill(255);
+                text("" + i, currButton.x, currButton.y);
+                i++;
+
+            }
+
+            if (touches.length == 3) {
+                circle.calculateCircle();
+                circle.render();
+
+                if (initialVec != null && currVec != null) {
+
+                    pushMatrix();
+                    translate(circle.cX, circle.cY);
+                    strokeWeight(4);
+                    rotate(initialVec.heading());
+                    line(0, 0, 0, 400);
+                    popMatrix();
+
+                    pushMatrix();
+                    translate(circle.cX, circle.cY);
+                    strokeWeight(4);
+                    rotate(currVec.heading());
+                    line(0, 0, 0, 400);
+                    popMatrix();
                 }
+
             }
         }
 
@@ -261,6 +305,22 @@ class Sketch extends PApplet {
 
             }
         }
+
+        public void radialActivation(boolean b) {
+            ToolButton indexButton = buttonList.get(1);
+            ToolButton thumbButton = buttonList.get(2);
+
+            if (b == false) {
+                initialVec = new PVector((indexButton.x - thumbButton.x), (indexButton.y - thumbButton.y));
+
+
+            }
+            else {
+                currVec = new PVector(indexButton.x - thumbButton.x, (indexButton.y- thumbButton.y));
+                degrees = angleBetween(initialVec, currVec);
+            }
+
+        }
     }
 
     class ToolCircle {
@@ -294,6 +354,14 @@ class Sketch extends PApplet {
 
             radius = b1.distance(cX, cY, x1, y1);
 
+        }
+
+        float getcX() {
+            return cX;
+        }
+
+        float getcY() {
+            return cY;
         }
 
         void render() {
