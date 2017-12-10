@@ -3,6 +3,7 @@ package com.gautam_bose.goodDrawing;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.method.Touch;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import processing.android.CompatUtils;
 import processing.android.PFragment;
 import processing.core.PApplet;
+import processing.core.PGraphics;
 import processing.core.PVector;
 import processing.event.TouchEvent;
 
@@ -64,24 +66,30 @@ public class mainCanvas extends AppCompatActivity {
 
 class Sketch extends PApplet {
     private Tool tool;
+    private DrawingCanvas canvas;
     private TouchDelegate delegate;
 //    boolean isCurrentGesture;
 
     public void settings() {
-        fullScreen();
-        tool = new Tool();
-        //eventually this will take in a canvas param as well :)
-        delegate = new TouchDelegate(tool);
+        fullScreen(P3D);
+
 
     }
 
     public void setup() {
 //        isCurrentGesture = false;
+        background(255);
+        tool = new Tool();
+        canvas = new DrawingCanvas();
+        //eventually this will take in a canvas param as well :)
+        delegate = new TouchDelegate(tool, canvas);
     }
 
     public void draw() {
         background(255);
         tool.drawTool();
+        canvas.renderToTexture();
+        canvas.renderToScreen();
     }
 
     @Override
@@ -110,16 +118,94 @@ class Sketch extends PApplet {
 
     }
 
+    class Brush {
+        int a = color(50, 50, 50);
+        Brush() {
+
+
+        }
+//
+//        draw(float x, float y) {
+//            ellipse()
+//        }
+    }
+
+//    class StrokePoint {
+//        TouchEvent.Pointer penTip;
+//        float x, y;
+//        float width;
+//
+//        StrokePoint(TouchEvent.Pointer pentip) {
+////            this.penTip = pentip;
+//            this.x = pentip.x;
+//            this.y = pentip.y;
+//        }
+//
+//        void setWidth(float width) {
+//            this.width = width;
+//        }
+//
+//    }
+
+    class DrawingCanvas {
+        PGraphics canvars;
+        boolean isCurrentStroke;
+        ArrayList<PVector> drawingPoints;
+//        int width, height;
+
+        DrawingCanvas() {
+            canvars = createGraphics(displayWidth, displayHeight, P3D);
+            isCurrentStroke = false;
+            drawingPoints = new ArrayList<>();
+        }
+
+        void addStroke(boolean currStroke, TouchEvent.Pointer penTip) {
+            if (!currStroke) {drawingPoints.clear();}
+
+
+                drawingPoints.add(new PVector(penTip.x, penTip.y));
+//                if (drawingPoints.size() >= 2) {
+//                    this.renderToTexture();
+//                }
+
+        }
+
+
+        void renderToTexture() {
+            if (!(drawingPoints.size() >= 2)) return;
+            PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
+            PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
+            PVector direction = PVector.lerp(p0, p1, 1);
+            PVector perpendicular = new PVector(direction.y, -direction.x).normalize();
+            PVector A = PVector.add(p0, PVector.mult(perpendicular, 5));
+            PVector B = PVector.sub(p0, PVector.mult(perpendicular, 5));
+            PVector C = PVector.add(p1, PVector.mult(perpendicular, 5));
+            PVector D = PVector.sub(p1, PVector.mult(perpendicular, 5));
+
+
+            canvars.beginDraw();
+//            canvars.fill(0);
+            canvars.triangle(A.x, A.y, B.x, B.y, C.x, C.y);
+            canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
+            canvars.endDraw();
+
+        }
+        void renderToScreen() {
+            image(canvars,0, 0);
+        }
+    }
     //this class delegates touches to either the tool or the drawing canvas
     class TouchDelegate {
         Tool tool;
-        //DrawingCanvas canvas;
+        DrawingCanvas canvas;
         boolean isCurrentGesture;
+        boolean isCurrentStroke;
 
-        TouchDelegate(Tool tool) {
+        TouchDelegate(Tool tool, DrawingCanvas canvas) {
             this.tool = tool;
             isCurrentGesture = false;
-            //this.canvas = canvas;
+            isCurrentStroke = false;
+            this.canvas = canvas;
         }
 
         void touchEnded() {
@@ -148,7 +234,8 @@ class Sketch extends PApplet {
                     toolTouches.add(touches[i]);
                 }
                 else {
-                    canvTouches.add(touches[i]);
+//                    canvTouches.add(touches[i]);
+                    canvas.addStroke(true, touches[i]);
                 }
             }
             tool.positionTool(toolTouches);
@@ -295,19 +382,11 @@ class Sketch extends PApplet {
 
                 if (initialVec != null && currVec != null) {
 
-//                    pushMatrix();
-//                    translate(circle.getcX(), circle.getcY());
-//                    strokeWeight(4);
-//                    rotate(initialVec.heading());
-//                    stroke(12,120, 120);
-//                    line(0, 0, 0, circle.getRenderRadius() / 2);
-//                    popMatrix();
 
                     if (selectionActive) {
                         selector.render(initialVec, circle.getcX(), circle.getcY());
                         selector.updateSelectedBrush(circle.getcX(), circle.getcY(), degrees);
                     }
-                    else selector.resetRenderRadius();
 
                     pushMatrix();
                     translate(circle.cX, circle.cY);
@@ -440,7 +519,7 @@ class Sketch extends PApplet {
 
 
         }
-        
+
         void resetRenderRadius() {
             if (maxRenderRadius != 0) maxRenderRadius = 0;
         }
@@ -509,7 +588,7 @@ class Sketch extends PApplet {
         }
     }
     //@todo implement easy circle for two fingers c is the mdipoint and r is the r.
-    class ToolCircle implements Runnable {
+    class ToolCircle {
         ArrayList<ToolButton> buttonList;
         float cX, cY, x1, y1, x2, y2, x3, y3, radius, renderRadius;
         float selectionBonus;
@@ -569,13 +648,7 @@ class Sketch extends PApplet {
 
         }
 
-        @Override
-        public void run() {
-//            if (selectionBonus == 300) return;
-//            if (tool.selectionActive) selectionBonus += 10;
-////            selectionBonus -= 10;
 
-        }
     }
 }
 
