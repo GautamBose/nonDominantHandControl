@@ -1,30 +1,30 @@
 package com.gautam_bose.goodDrawing;
 
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import java.util.ArrayList;
 
-import processing.core.PApplet;
-import processing.android.PFragment;
 import processing.android.CompatUtils;
+import processing.android.PFragment;
+import processing.core.PApplet;
 import processing.core.PVector;
 import processing.event.TouchEvent;
 
-import static processing.core.PVector.angleBetween;
-
-//@todo make inactive buttons follow
-//@todo visual cleanup
-//@todo code regarding pens <= break this down more
-//@todo color changing
-//@todo stroke changing
-//@todo fix placmeent of third orb
-//@todo canvas zooming and such
-//@todo finish three finger tool picker
+/*
+@todo make inactive buttons follow
+@todo visual cleanup
+@todo code regarding pens <= break this down more
+@todo color changing
+@todo stroke changing
+@todo fix placmeent of third orb
+@todo canvas zooming and such
+@todo finish three finger tool picker
+*/
 
 public class mainCanvas extends AppCompatActivity {
     private PApplet sketch;
@@ -229,7 +229,6 @@ class Sketch extends PApplet {
         private ToolCircle circle;
         private PVector initialVec, currVec;
         private float oldDegrees, degrees, degreesPerFrame;
-        private float t0, t1;
         private boolean selectionActive;
 
         Tool() {
@@ -242,7 +241,7 @@ class Sketch extends PApplet {
         }
 
         void makeThirdButtonAvaliable() {
-            if (touches.length == 2 && buttonList.size() < 3) {
+            if (this.fingsInTool().size() == 2 && buttonList.size() < 3) {
 //                ToolButton auxButton0 = buttonList.get(0);
                 ToolButton auxButton1 = buttonList.get(1);
                 buttonList.add(new ToolButton(auxButton1.x, auxButton1.y + 300, buttRadius, false));
@@ -350,7 +349,7 @@ class Sketch extends PApplet {
             }
         }
 
-        public void setActiveButtons(boolean isTouchStarted) {
+        void setActiveButtons(boolean isTouchStarted) {
             for (ToolButton currButton: buttonList) {
                 currButton.setIsActive(false);
                 int finalIndex = touches.length;
@@ -370,11 +369,11 @@ class Sketch extends PApplet {
             }
         }
 
-        public void radialActivation(boolean b) {
+         void radialActivation(boolean b) {
             ToolButton indexButton = buttonList.get(1);
             ToolButton thumbButton = buttonList.get(2);
 
-            if (b == false) {
+            if (!b) {
                 initialVec = new PVector((indexButton.x - thumbButton.x), (indexButton.y - thumbButton.y));
                 oldDegrees = initialVec.heading();
                 selectionActive = false;
