@@ -230,6 +230,7 @@ class Sketch extends PApplet {
         private PVector initialVec, currVec;
         private float oldDegrees, degrees, degreesPerFrame;
         private boolean selectionActive;
+        private BrushSelector selector;
 
         Tool() {
             buttRadius = 150;
@@ -237,7 +238,9 @@ class Sketch extends PApplet {
             buttonList.add(new ToolButton(100, 200, buttRadius, false));
             buttonList.add(new ToolButton(500, 500, buttRadius, false));
             circle = new ToolCircle(buttonList);
+            selector = new BrushSelector(circle);
             selectionActive = false;
+
         }
 
         void makeThirdButtonAvaliable() {
@@ -277,7 +280,7 @@ class Sketch extends PApplet {
             textSize(76);
             textAlign(LEFT, TOP);
             fill(0);
-            text("Degrees:  " + degrees, 20, 20);
+            text("zone:  " + selector.brushZone, 20, 20);
             for (ToolButton currButton : buttonList) {
                 currButton.render();
                 fill(255);
@@ -292,12 +295,19 @@ class Sketch extends PApplet {
 
                 if (initialVec != null && currVec != null) {
 
-                    pushMatrix();
-                    translate(circle.cX, circle.cY);
-                    strokeWeight(4);
-                    rotate(initialVec.heading());
-                    line(0, 0, 0, circle.getRenderRadius() / 2);
-                    popMatrix();
+//                    pushMatrix();
+//                    translate(circle.getcX(), circle.getcY());
+//                    strokeWeight(4);
+//                    rotate(initialVec.heading());
+//                    stroke(12,120, 120);
+//                    line(0, 0, 0, circle.getRenderRadius() / 2);
+//                    popMatrix();
+
+                    if (selectionActive) {
+                        selector.render(initialVec, circle.getcX(), circle.getcY());
+                        selector.updateSelectedBrush(circle.getcX(), circle.getcY(), degrees);
+                    }
+                    else selector.resetRenderRadius();
 
                     pushMatrix();
                     translate(circle.cX, circle.cY);
@@ -306,18 +316,18 @@ class Sketch extends PApplet {
                     line(0, 0, 0, circle.getRenderRadius() / 2);
                     popMatrix();
 
-                    pushMatrix();
-                    translate(circle.cX, circle.cY);
-                    rotate(radians(90));
-                    fill(0,255,0);
-                    noStroke();
-                    if (selectionActive) {
-                        if (initialVec.heading() < currVec.heading())
-                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
-                        else
-                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
-                    }
-                    popMatrix();
+//                    pushMatrix();
+//                    translate(circle.cX, circle.cY);
+//                    rotate(radians(90));
+//                    fill(0,255,0);
+//                    noStroke();
+//                    if (selectionActive) {
+//                        if (initialVec.heading() < currVec.heading())
+//                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
+//                        else
+//                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
+//                    }
+//                    popMatrix();
                 }
 
             }
@@ -397,6 +407,91 @@ class Sketch extends PApplet {
         }
     }
 
+
+    class BrushSelector {
+        private ToolCircle toolCircle;
+        private float separationAngle;
+        private float maxRenderRadius;
+        float[][] brushRegions;
+        int brushZone;
+
+        BrushSelector(ToolCircle toolCircle) {
+            this.toolCircle = toolCircle;
+            separationAngle = radians(-40);
+            maxRenderRadius = 0;
+            brushRegions = new float[3][2];
+            brushZone = -1;
+
+        }
+
+        void updateSelectedBrush(float x, float y, float degrees) {
+//            println(brushRegions[0][0] + " " + currVector.heading() + " " + brushRegions[0][1]);
+            if (radians(20) > degrees && degrees > radians(-20)) {
+               brushZone = 1;
+            }
+
+            else if (radians(20) < degrees) {
+                brushZone = 2;
+            }
+
+            else if (radians(-20) > degrees) {
+                brushZone = 0;
+            }
+
+
+        }
+        
+        void resetRenderRadius() {
+            if (maxRenderRadius != 0) maxRenderRadius = 0;
+        }
+        void render(PVector initialVector, float x, float y) {
+
+            maxRenderRadius = toolCircle.getRenderRadius() / 2;
+
+            pushMatrix();
+            translate(x, y);
+            float currRotation = radians(180) + separationAngle * 3  + initialVector.heading();
+            rotate(currRotation);
+            strokeWeight(4);
+            fill(0,255,0);
+            if (brushZone == 2) {
+                rotate(radians(90) + separationAngle);
+                fill(0,0,255);
+                arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
+                rotate(radians(-90) - separationAngle);
+            }
+            stroke(0, 255, 0);
+            line(0, 0, 0, maxRenderRadius);
+
+
+            rotate(separationAngle);
+            if (brushZone == 1) {
+                rotate(radians(90) + separationAngle);
+                fill(0,0,255);
+                arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
+                rotate(radians(-90) - separationAngle);
+            }
+            stroke(0, 0, 255);
+            line(0,0, 0, maxRenderRadius);
+
+
+            rotate(separationAngle);
+            if (brushZone == 0) {
+                rotate(radians(90) + separationAngle);
+                fill(0,0,255);
+                arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
+                rotate(radians(-90) - separationAngle);
+            }
+            stroke(255, 0, 0);
+            line(0,0, 0, maxRenderRadius);
+            rotate(separationAngle);
+            stroke(0);
+            line(0, 0, 0, maxRenderRadius);
+            popMatrix();
+
+        }
+    }
+
 //    class Canvas
 
 //    @todo implement these classes
@@ -470,15 +565,15 @@ class Sketch extends PApplet {
 //            strokeWeight(strokeWeight);
             renderRadius = radius * 2 + tool.getButtRadius() + selectionBonus;
             ellipse(cX, cY, renderRadius, renderRadius);
-            if (tool.selectionActive && selectionBonus <= 200) (new Thread(this)).start();
+            if (tool.selectionActive && selectionBonus <= 300) selectionBonus += 15;
 
         }
 
         @Override
         public void run() {
-            if (selectionBonus == 200) return;
-            if (tool.selectionActive) selectionBonus += 10;
-//            selectionBonus -= 10;
+//            if (selectionBonus == 300) return;
+//            if (tool.selectionActive) selectionBonus += 10;
+////            selectionBonus -= 10;
 
         }
     }
