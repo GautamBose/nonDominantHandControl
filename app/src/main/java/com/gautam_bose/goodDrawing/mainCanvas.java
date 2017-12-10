@@ -64,17 +64,19 @@ public class mainCanvas extends AppCompatActivity {
 
 class Sketch extends PApplet {
     private Tool tool;
-    boolean isCurrentGesture;
+    private TouchDelegate delegate;
+//    boolean isCurrentGesture;
 
     public void settings() {
         fullScreen();
         tool = new Tool();
-//        frameRate(240);
-//        background(255);
+        //eventually this will take in a canvas param as well :)
+        delegate = new TouchDelegate(tool);
+
     }
 
     public void setup() {
-        isCurrentGesture = false;
+//        isCurrentGesture = false;
     }
 
     public void draw() {
@@ -84,40 +86,85 @@ class Sketch extends PApplet {
 
     @Override
     public boolean surfaceTouchEvent(MotionEvent motionEvent) {
-
-        tool.positionTool();
-        if (tool.numFingsInTool() == 3) {
-//            tool.threeFingGesture == true;
-            tool.radialActivation(isCurrentGesture);
-            isCurrentGesture = true;
-        }
-        else {
-            isCurrentGesture = false;
-        }
+        delegate.touchEvent();
         return super.surfaceTouchEvent(motionEvent);
     }
 
     @Override
     public void touchStarted() {
-        if (tool.numFingsInTool() == 2) {
-            tool.makeThirdButtonAvaliable();
-        }
-        tool.setActiveButtons(true);
+//        if (tool.fingsInTool().size() == 2) {
+//            tool.makeThirdButtonAvaliable();
+//        }
+//        tool.setActiveButtons(true);
+
+        delegate.touchStarted();
     }
 
     @Override
     public void touchEnded() {
-        println("endedtouches");
-        println(touches.length);
-//        println("called");
-        if (touches.length <= 2) {
-            tool.removeThirdButton();
-        }
-        tool.setActiveButtons(false);
+        delegate.touchEnded();
+//        if (touches.length <= 2) {
+//            tool.removeThirdButton();
+//        }
+//        tool.setActiveButtons(false);
 
     }
 
+    //this class delegates touches to either the tool or the drawing canvas
+    class TouchDelegate {
+        Tool tool;
+        //DrawingCanvas canvas;
+        boolean isCurrentGesture;
 
+        TouchDelegate(Tool tool) {
+            this.tool = tool;
+            isCurrentGesture = false;
+            //this.canvas = canvas;
+        }
+
+        void touchEnded() {
+            if (tool.fingsInTool().size() <= 2) {
+                tool.removeThirdButton();
+            }
+            tool.setActiveButtons(false);
+
+        }
+
+        void touchStarted() {
+            if (tool.fingsInTool().size() == 2) {
+                tool.makeThirdButtonAvaliable();
+            }
+            tool.setActiveButtons(true);
+
+        }
+
+        void touchEvent() {
+            ArrayList<TouchEvent.Pointer> canvTouches = new ArrayList<>();
+            ArrayList<TouchEvent.Pointer> toolTouches = new ArrayList<>();
+            ArrayList<Integer> toolTouchIndexes = tool.fingsInTool();
+
+            for (int i = 0; i < touches.length; i++) {
+                if (toolTouchIndexes.contains(i)) {
+                    toolTouches.add(touches[i]);
+                }
+                else {
+                    canvTouches.add(touches[i]);
+                }
+            }
+            tool.positionTool(toolTouches);
+
+            if (tool.fingsInTool().size() == 3) {
+                tool.radialActivation(isCurrentGesture);
+                isCurrentGesture = true;
+            }
+            else {
+                isCurrentGesture = false;
+            }
+
+        }
+
+
+    }
     class ToolButton {
         float x, y, radius;
         boolean isActive;
@@ -208,16 +255,18 @@ class Sketch extends PApplet {
             }
         }
 
-        int numFingsInTool() {
-            int numButtonsInTool = 0;
-            for (TouchEvent.Pointer currpointer : touches) {
+        //returns the indexes in the touches array of the fingers currently on the tool
+        ArrayList<Integer> fingsInTool() {
+            ArrayList<Integer> touchIndexesOnTool = new ArrayList<>();
+            for (int i = 0; i < touches.length; i++ ) {
+                TouchEvent.Pointer currpointer = touches[i];
                 for (ToolButton currButton : buttonList) {
                     if (currButton.isOver(currpointer.x, currpointer.y)) {
-                        numButtonsInTool++;
+                        touchIndexesOnTool.add(i);
                     }
                 }
             }
-            return numButtonsInTool;
+            return touchIndexesOnTool;
         }
 
         int getButtRadius() {
@@ -229,8 +278,7 @@ class Sketch extends PApplet {
             textSize(76);
             textAlign(LEFT, TOP);
             fill(0);
-//            text("Degrees PER SECOND: " + degreesPerFrame, 20, 20);
-            rect(0,0, 100, degreesPerFrame * 100);
+            text("Degrees:  " + degrees, 20, 20);
             for (ToolButton currButton : buttonList) {
                 currButton.render();
                 fill(255);
@@ -239,7 +287,7 @@ class Sketch extends PApplet {
 
             }
 
-            if (touches.length == 3) {
+            if (this.fingsInTool().size() == 3) {
                 circle.calculateCircle();
                 circle.render();
 
@@ -291,7 +339,7 @@ class Sketch extends PApplet {
 
         }
 
-        void positionTool() {
+        void positionTool(ArrayList<TouchEvent.Pointer> touches) {
             for (TouchEvent.Pointer currpointer : touches) {
                 for (ToolButton currButton : buttonList) {
                     if (currButton.isOver(currpointer.x, currpointer.y)) {
@@ -306,6 +354,7 @@ class Sketch extends PApplet {
             for (ToolButton currButton: buttonList) {
                 currButton.setIsActive(false);
                 int finalIndex = touches.length;
+
                 //if the call is coming from touchEnded, ignore the last element of touches because it no longer is on the screen :<
                 if (isTouchStarted == false) finalIndex--;
 
@@ -339,10 +388,7 @@ class Sketch extends PApplet {
 //                println(degreesPerFrame);
                 if (!selectionActive) {
                     if ((degreesPerFrame > 3 && degreesPerFrame < 50) || (degrees(degrees) > 15 || degrees(degrees) < -15)) {
-                        print("dpf");
-                        print(degreesPerFrame);
-                        print("degrees");
-                        print(degrees(degrees));
+
                         selectionActive = true;
                     }
                 }
@@ -352,15 +398,31 @@ class Sketch extends PApplet {
         }
     }
 
+//    class Canvas
+
+//    @todo implement these classes
+    class TwoFingerCircle extends ToolCircle {
+        TwoFingerCircle(ArrayList<ToolButton> buttonList) {
+            super(buttonList);
+        }
+
+
+    }
+
+    class FourFingerCircle extends ToolCircle {
+        FourFingerCircle(ArrayList<ToolButton> buttonList) {
+            super(buttonList);
+        }
+    }
     //@todo implement easy circle for two fingers c is the mdipoint and r is the r.
     class ToolCircle implements Runnable {
         ArrayList<ToolButton> buttonList;
         float cX, cY, x1, y1, x2, y2, x3, y3, radius, renderRadius;
-        float strokeTransparency;
+        float selectionBonus;
         ToolCircle(ArrayList<ToolButton> buttonList) {
             this.buttonList = buttonList;
             this.calculateCircle();
-            strokeTransparency = 0;
+            selectionBonus = 0;
         }
 
         private void calculateCircle() {
@@ -389,7 +451,7 @@ class Sketch extends PApplet {
         }
 
         void resetTransparency() {
-            strokeTransparency = 0;
+            selectionBonus = 0;
         }
         float getcX() {
             return cX;
@@ -405,17 +467,20 @@ class Sketch extends PApplet {
 
         void render() {
             noFill();
-            stroke(255,0, 0, strokeTransparency);
+            stroke(255,0, 0);
 //            strokeWeight(strokeWeight);
-            renderRadius = radius * 2 + tool.getButtRadius();
+            renderRadius = radius * 2 + tool.getButtRadius() + selectionBonus;
             ellipse(cX, cY, renderRadius, renderRadius);
-            (new Thread(this)).start();
+            if (tool.selectionActive && selectionBonus <= 200) (new Thread(this)).start();
+
         }
 
         @Override
         public void run() {
-            if (strokeTransparency == 255) return;
-            strokeTransparency += 10;
+            if (selectionBonus == 200) return;
+            if (tool.selectionActive) selectionBonus += 10;
+//            selectionBonus -= 10;
+
         }
     }
 }
