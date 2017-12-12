@@ -130,57 +130,57 @@ class Sketch extends PApplet {
 //        }
     }
 
-//    class StrokePoint {
-//        TouchEvent.Pointer penTip;
-//        float x, y;
-//        float width;
-//
-//        StrokePoint(TouchEvent.Pointer pentip) {
-////            this.penTip = pentip;
-//            this.x = pentip.x;
-//            this.y = pentip.y;
-//        }
-//
-//        void setWidth(float width) {
-//            this.width = width;
-//        }
-//
-//    }
-
     class DrawingCanvas {
         PGraphics canvars;
         boolean isCurrentStroke;
         ArrayList<PVector> drawingPoints;
+        PVector oldC, oldD;
 //        int width, height;
 
         DrawingCanvas() {
             canvars = createGraphics(displayWidth, displayHeight, P3D);
             isCurrentStroke = false;
             drawingPoints = new ArrayList<>();
+            oldC = new PVector();
+            oldD = new PVector();
         }
 
         void addStroke(boolean currStroke, TouchEvent.Pointer penTip) {
-            if (!currStroke) {drawingPoints.clear();}
+//            isCurrentStroke = true;
+//
+//            if (currStroke == false) {
+//                drawingPoints.clear();
+//                isCurrentStroke = false;
+//            }
 
-
-                drawingPoints.add(new PVector(penTip.x, penTip.y));
-//                if (drawingPoints.size() >= 2) {
-//                    this.renderToTexture();
-//                }
-
+            drawingPoints.add(new PVector(penTip.x, penTip.y));
+        }
+        void setIsCurrentStroke(boolean b) {
+            this.isCurrentStroke = b;
         }
 
-
         void renderToTexture() {
+
             if (!(drawingPoints.size() >= 2)) return;
+            println(isCurrentStroke);
+//            if (!isCurrentStroke) println("setting recieved");
             PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
             PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
             PVector direction = PVector.lerp(p0, p1, 1);
             PVector perpendicular = new PVector(direction.y, -direction.x).normalize();
-            PVector A = PVector.add(p0, PVector.mult(perpendicular, 5));
-            PVector B = PVector.sub(p0, PVector.mult(perpendicular, 5));
-            PVector C = PVector.add(p1, PVector.mult(perpendicular, 5));
-            PVector D = PVector.sub(p1, PVector.mult(perpendicular, 5));
+            PVector A = PVector.add(p0, PVector.mult(perpendicular, 50));
+            PVector B = PVector.sub(p0, PVector.mult(perpendicular, 50));
+            PVector C = PVector.add(p1, PVector.mult(perpendicular, 50));
+            PVector D = PVector.sub(p1, PVector.mult(perpendicular, 50));
+
+            if (isCurrentStroke) {
+//                print("continued");
+                A = oldC;
+                B = oldD;
+            }
+            else {
+//                print("nwe LIne");
+            }
 
 
             canvars.beginDraw();
@@ -189,9 +189,18 @@ class Sketch extends PApplet {
             canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
             canvars.endDraw();
 
+            println("setting old vars");
+            oldC = C.copy();
+            oldD = D.copy();
+
+
+
         }
         void renderToScreen() {
             image(canvars,0, 0);
+            if (!(drawingPoints.size() >= 2) || isCurrentStroke) return;
+            drawingPoints.remove(drawingPoints.size() - 2);
+            drawingPoints.remove(drawingPoints.size() - 1);
         }
     }
     //this class delegates touches to either the tool or the drawing canvas
@@ -234,10 +243,22 @@ class Sketch extends PApplet {
                     toolTouches.add(touches[i]);
                 }
                 else {
-//                    canvTouches.add(touches[i]);
-                    canvas.addStroke(true, touches[i]);
+                    canvTouches.add(touches[i]);
+//                    canvas.addStroke(true, touches[i]);
                 }
             }
+
+            if (canvTouches.size() > 0) {
+                canvas.addStroke(isCurrentStroke, canvTouches.get(0));
+                println("setting true");
+                canvas.setIsCurrentStroke(true);
+
+            }
+            else {
+                println("setting fasle");
+                canvas.isCurrentStroke = false;
+            }
+
             tool.positionTool(toolTouches);
 
             if (tool.fingsInTool().size() == 3) {
