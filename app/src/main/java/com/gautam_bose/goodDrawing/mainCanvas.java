@@ -88,9 +88,10 @@ class Sketch extends PApplet {
 
     public void draw() {
         background(255);
-        tool.drawTool();
+
         canvas.renderToTexture();
         canvas.renderToScreen();
+        tool.drawTool();
     }
 
     @Override
@@ -126,6 +127,10 @@ class Sketch extends PApplet {
 
 //        Brush()
 //        }
+
+        void setColor(int color) {
+            this.color = color;
+        }
     }
 
     class Eraser extends Brush {
@@ -372,6 +377,7 @@ class Sketch extends PApplet {
                 tool.makeThirdButtonAvaliable();
             }
 
+
 //            if (tool.fingsInTool().size() != touches.length) {
 //                println("settring treu");
 //                canvas.setIsCurrentStroke(true);
@@ -458,13 +464,15 @@ class Sketch extends PApplet {
         }
 
         void render() {
-            if (isActive){
-                fill(0);
-            }
-            else {
-                fill(255, 0, 0);
-            }
+//            if (isActive){
+//                fill(0);
+//            }
+//            else {
+//                fill(1, 0, 0);
+//            }
 
+            fill(106,153,183);
+            noStroke();
             ellipse(this.x, this.y, radius, radius);
         }
 
@@ -480,7 +488,7 @@ class Sketch extends PApplet {
         private ToolCircle circle;
         private PVector initialVec, currVec;
         private float oldDegrees, degrees, degreesPerFrame;
-        private boolean selectionActive;
+        private boolean selectionActive, colorMode;
         protected BrushSelector selector;
 
         Tool() {
@@ -493,12 +501,6 @@ class Sketch extends PApplet {
             selectionActive = false;
 
         }
-//
-//        boolean isFourthTouchInRadius(Pointer) {
-//            if (this.selectionActive) {
-//
-//            }
-//        }
 
         BrushSelector getSelector() {
             return selector;
@@ -511,12 +513,7 @@ class Sketch extends PApplet {
                 buttonList.add(new ToolButton(auxButton1.x, auxButton1.y + 300, buttRadius, false));
             }
         }
-//
-//        void makeFourthButtonAvaliable() {
-//            if (this.fingsInTool().size() == 3 && buttonList.size() < 4) {
-//
-//            }
-//        }
+
 
         void removeThirdButton() {
             if (buttonList.size() > 2) {
@@ -546,12 +543,12 @@ class Sketch extends PApplet {
             int i = 0;
             textSize(76);
             textAlign(LEFT, TOP);
-            fill(0);
-            text("zone:  " + selector.brushZone, 20, 20);
+//            fill(0);
+//            text("zone:  " + selector.brushZone, 20, 20);
             for (ToolButton currButton : buttonList) {
                 currButton.render();
-                fill(255);
-                text("" + i, currButton.x, currButton.y);
+//                fill(255);
+//                text("" + i, currButton.x, currButton.y);
                 i++;
 
             }
@@ -566,6 +563,11 @@ class Sketch extends PApplet {
                     if (selectionActive) {
                         selector.render(initialVec, circle.getcX(), circle.getcY());
                         selector.updateSelectedBrush(circle.getcX(), circle.getcY(), degrees);
+                        if (!(canvas.currBrush instanceof Eraser)) {
+                            colorMode(HSB, 360, 100, 100);
+                            canvas.currBrush.setColor(color(map(circle.getcY(), 0, height, 0, 360), 100, 100));
+                            colorMode(RGB, 255, 255, 255);
+                        }
                     }
 
                     pushMatrix();
@@ -607,17 +609,6 @@ class Sketch extends PApplet {
 
         }
 
-//        boolean buttonNotNearOthers(ToolButton button) {
-//             for (ToolButton currButton : buttonList) {
-//                 if (currButton.getX() ==button.getX() && currButton.getY() == button.getY()) continue;
-//                 if (button.distance(button.getX(), button.getY(), currButton.getX(), currButton.getY()) <= buttRadius) {
-////                     println("button too close");
-//                     return true;
-//                 }
-//             }
-//             return false;
-//
-//        }
 
         void resetButtonPos() {
             buttonList.get(1).x = buttonList.get(0).x + buttRadius + 100;
@@ -744,18 +735,18 @@ class Sketch extends PApplet {
             fill(0,255,0);
             if (brushZone == 2) {
                 rotate(radians(90) + separationAngle);
-                fill(100,100,100, 65);
+                fill(canvas.currBrush.color);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
-            stroke(0, 255, 0);
+//            stroke(0, 255, 0);
             line(0, 0, 0, maxRenderRadius);
 
 
             rotate(separationAngle);
             if (brushZone == 1) {
                 rotate(radians(90) + separationAngle);
-                fill(100,100,100, 65);
+                fill(canvas.currBrush.color);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
@@ -766,11 +757,11 @@ class Sketch extends PApplet {
             if (brushZone == 0) {
 
                 rotate(radians(90) + separationAngle);
-                fill(100,100,100, 65);
+                fill(canvas.currBrush.color);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
-            stroke(255, 0, 0);
+//            stroke(255, 0, 0);
             line(0,0, 0, maxRenderRadius);
             rotate(separationAngle);
             stroke(0);
@@ -780,22 +771,7 @@ class Sketch extends PApplet {
         }
     }
 
-//    class Canvas
 
-//    @todo implement these classes
-    class TwoFingerCircle extends ToolCircle {
-        TwoFingerCircle(ArrayList<ToolButton> buttonList) {
-            super(buttonList);
-        }
-
-
-    }
-
-    class FourFingerCircle extends ToolCircle {
-        FourFingerCircle(ArrayList<ToolButton> buttonList) {
-            super(buttonList);
-        }
-    }
     //@todo implement easy circle for two fingers c is the mdipoint and r is the r.
     class ToolCircle {
         ArrayList<ToolButton> buttonList;
