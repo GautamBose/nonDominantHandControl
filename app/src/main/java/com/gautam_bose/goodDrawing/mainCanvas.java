@@ -118,17 +118,17 @@ class Sketch extends PApplet {
 
     }
 
-    class Brush {
-        int a = color(50, 50, 50);
-        Brush() {
-
-
-        }
+//    class Brush {
+//        int a = color(50, 50, 50);
+//        Brush() {
 //
-//        draw(float x, float y) {
-//            ellipse()
+//
 //        }
-    }
+////
+////        draw(float x, float y) {
+////            ellipse()
+////        }
+//    }
 
     class DrawingCanvas {
         PGraphics canvars;
@@ -162,45 +162,58 @@ class Sketch extends PApplet {
         void renderToTexture() {
 
             if (!(drawingPoints.size() >= 2)) return;
-            println(isCurrentStroke);
-//            if (!isCurrentStroke) println("setting recieved");
             PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
             PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
-            PVector direction = PVector.lerp(p0, p1, 1);
-            PVector perpendicular = new PVector(direction.y, -direction.x).normalize();
+
+//            find perpendicular vector to direction of points
+            PVector direction = new PVector(p0.x - p1.x, p0.y -p1.y);
+            PVector perpendicular = new PVector(-direction.y, direction.x);
+            perpendicular.normalize();
+
+            //multiply by width;
             PVector A = PVector.add(p0, PVector.mult(perpendicular, 50));
             PVector B = PVector.sub(p0, PVector.mult(perpendicular, 50));
             PVector C = PVector.add(p1, PVector.mult(perpendicular, 50));
             PVector D = PVector.sub(p1, PVector.mult(perpendicular, 50));
+            println(perpendicular);
 
-            if (isCurrentStroke) {
-//                print("continued");
+            if (drawingPoints.size() > 2) {
                 A = oldC;
                 B = oldD;
             }
-            else {
-//                print("nwe LIne");
-            }
+
+//            else {
+//                A = PVector.add(p0, PVector.mult(perpendicular, 50));
+//                B = PVector.sub(p0, PVector.mult(perpendicular, 50));
+//            }
 
 
             canvars.beginDraw();
-//            canvars.fill(0);
             canvars.triangle(A.x, A.y, B.x, B.y, C.x, C.y);
             canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
+
             canvars.endDraw();
 
-            println("setting old vars");
+//            println("setting old vars");
             oldC = C.copy();
             oldD = D.copy();
 
 
 
         }
+
+
+        float getSize() {
+            float size;
+
+
+            return size;
+        }
         void renderToScreen() {
             image(canvars,0, 0);
+
             if (!(drawingPoints.size() >= 2) || isCurrentStroke) return;
-            drawingPoints.remove(drawingPoints.size() - 2);
-            drawingPoints.remove(drawingPoints.size() - 1);
+            drawingPoints.clear();
         }
     }
     //this class delegates touches to either the tool or the drawing canvas
@@ -223,13 +236,20 @@ class Sketch extends PApplet {
             }
             tool.setActiveButtons(false);
 
+            if (tool.fingsInTool().size() == touches.length) {
+                canvas.setIsCurrentStroke(false);
+            }
+
         }
 
         void touchStarted() {
             if (tool.fingsInTool().size() == 2) {
                 tool.makeThirdButtonAvaliable();
             }
-            tool.setActiveButtons(true);
+
+            if (tool.fingsInTool().size() != touches.length) {
+                canvas.setIsCurrentStroke(true);
+            }
 
         }
 
@@ -250,13 +270,7 @@ class Sketch extends PApplet {
 
             if (canvTouches.size() > 0) {
                 canvas.addStroke(isCurrentStroke, canvTouches.get(0));
-                println("setting true");
                 canvas.setIsCurrentStroke(true);
-
-            }
-            else {
-                println("setting fasle");
-                canvas.isCurrentStroke = false;
             }
 
             tool.positionTool(toolTouches);
