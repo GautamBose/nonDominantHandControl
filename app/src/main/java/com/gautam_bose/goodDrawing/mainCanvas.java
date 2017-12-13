@@ -8,6 +8,7 @@ import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 import processing.android.CompatUtils;
@@ -133,37 +134,56 @@ class Sketch extends PApplet {
     class DrawingCanvas {
         PGraphics canvars;
         boolean isCurrentStroke;
+        boolean internalCurrentStroke;
         ArrayList<PVector> drawingPoints;
         PVector oldC, oldD;
+        ArrayList<Float> velocities;
+        ArrayList<PVector> smoothedPoints;
+//        ArrayList
 //        int width, height;
 
         DrawingCanvas() {
             canvars = createGraphics(displayWidth, displayHeight, P3D);
             isCurrentStroke = false;
+            internalCurrentStroke = false;
             drawingPoints = new ArrayList<>();
+            velocities = new ArrayList<>();
+
             oldC = new PVector();
             oldD = new PVector();
+
         }
 
         void addStroke(boolean currStroke, TouchEvent.Pointer penTip) {
-//            isCurrentStroke = true;
-//
-//            if (currStroke == false) {
-//                drawingPoints.clear();
-//                isCurrentStroke = false;
-//            }
+            if (drawingPoints.size() >= 2) {
+                PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
+                PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
 
-            drawingPoints.add(new PVector(penTip.x, penTip.y));
+//            find perpendicular vector to direction of points
+                PVector direction = new PVector(p0.x - p1.x, p0.y -p1.y);
+                drawingPoints.add(new PVector(penTip.x, penTip.y, this.getSize(direction)));
+
+            }
+
+            else {
+                drawingPoints.add(new PVector(penTip.x, penTip.y));
+            }
+//                println("calculateSmoothedPoints called");
+             smoothedPoints = calculateSmoothLinePoints();
+
         }
+
         void setIsCurrentStroke(boolean b) {
             this.isCurrentStroke = b;
         }
 
         void renderToTexture() {
 
-            if (!(drawingPoints.size() >= 2)) return;
-            PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
-            PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
+            if (smoothedPoints == null || !(smoothedPoints.size() >= 2)) return;
+            println("rendering~");
+//            println(smoothedPoints.size());
+            PVector p0 = smoothedPoints.get(smoothedPoints.size() - 2);
+            PVector p1 = smoothedPoints.get(smoothedPoints.size() - 1);
 
 //            find perpendicular vector to direction of points
             PVector direction = new PVector(p0.x - p1.x, p0.y -p1.y);
@@ -171,40 +191,90 @@ class Sketch extends PApplet {
             perpendicular.normalize();
 
             //multiply by width;
-            PVector A = PVector.add(p0, PVector.mult(perpendicular, 50));
-            PVector B = PVector.sub(p0, PVector.mult(perpendicular, 50));
-            PVector C = PVector.add(p1, PVector.mult(perpendicular, 50));
-            PVector D = PVector.sub(p1, PVector.mult(perpendicular, 50));
-            println(perpendicular);
+            PVector A = PVector.add(p0, PVector.mult(perpendicular, p0.z));
+            PVector B = PVector.sub(p0, PVector.mult(perpendicular, p0.z));
+            PVector C = PVector.add(p1, PVector.mult(perpendicular, p1.z));
+            PVector D = PVector.sub(p1, PVector.mult(perpendicular, p1.z));
 
-            if (drawingPoints.size() > 2) {
+            if (internalCurrentStroke) {
+//                println("yes");
                 A = oldC;
                 B = oldD;
             }
-
-//            else {
-//                A = PVector.add(p0, PVector.mult(perpendicular, 50));
-//                B = PVector.sub(p0, PVector.mult(perpendicular, 50));
-//            }
-
+//            else{println("no");}
 
             canvars.beginDraw();
+            canvars.fill(0);
+            canvars.noStroke();
             canvars.triangle(A.x, A.y, B.x, B.y, C.x, C.y);
             canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
 
             canvars.endDraw();
 
-//            println("setting old vars");
             oldC = C.copy();
             oldD = D.copy();
+            internalCurrentStroke = true;
+
 
 
         }
 
+        ArrayList<PVector> calculateSmoothLinePoints() {
+            if (drawingPoints.size() > 2) {
+                ArrayList<PVector> smoothedPoints = new ArrayList<>();
+                for (int i = 2; i < drawingPoints.size(); i++) {
+                    PVector prev2 = drawingPoints.get(i - 2);
+                    PVector prev1 = drawingPoints.get(i - 1);
+                    PVector currP = drawingPoints.get(i);
 
-        float getSize() {
-            float size;
+                    PVector m1 = PVector.add(prev1, prev2).mult((float) 0.5);
+                    PVector m2 = PVector.add(currP, prev1).mult((float) 0.5);
 
+                    int segmentDistance = 2;
+                    float distance = abs(new PVector(m1.x - m2.x, m1.y - m2.y).mag());
+                    int numberOfSegments = min(128, max(floor(distance / segmentDistance), 32));
+
+                    float t = 0;
+                    float step = 1 / numberOfSegments;
+
+                    for (int j = 0; j < numberOfSegments; j++) {
+                        PVector newPoint;
+                        newPoint = PVector.add(PVector.add(PVector.mult(m1, pow(1-t, 2)), PVector.mult(prev1, 2 * (1-t) * t)), PVector.mult(m2, t * t));
+                        newPoint.z = pow(1 - t, 2) * ((prev1.z + prev2.z) * (float)0.5) + 2 * (1 - t) * t * prev1.z + t * t * ((currP.z + prev1.z) * (float)0.5);
+
+                        smoothedPoints.add(newPoint);
+                        t += step;
+                    }
+
+                    PVector finalPoint = new PVector();
+                    finalPoint.x = m2.x;
+                    finalPoint.y = m2.y;
+                    finalPoint.z = (currP.z + prev1.z) * (float) 0.5;
+                    smoothedPoints.add(finalPoint);
+
+                }
+                drawingPoints.subList(0, drawingPoints.size() - 2).clear();
+                return smoothedPoints;
+
+            }
+
+            else {
+                return null;
+            }
+        }
+
+        float getSize(PVector direction) {
+            float speed = direction.mag();
+            float size = speed / 20;
+            size = constrain(size, 1, 40);
+
+            if (velocities.size() > 1) {
+                size *= 0.2 + velocities.get(velocities.size() - 1) * 0.8;
+            }
+
+            size = constrain(size, 7, 20);
+
+            velocities.add(size);
 
             return size;
         }
@@ -212,7 +282,10 @@ class Sketch extends PApplet {
             image(canvars,0, 0);
 
             if (!(drawingPoints.size() >= 2) || isCurrentStroke) return;
+            internalCurrentStroke = false;
             drawingPoints.clear();
+            velocities.clear();
+            smoothedPoints.clear();
         }
     }
     //this class delegates touches to either the tool or the drawing canvas
