@@ -73,16 +73,15 @@ class Sketch extends PApplet {
 
     public void settings() {
         fullScreen(P3D);
+        //P3D renderer for improved performance
 
 
     }
 
     public void setup() {
-//        isCurrentGesture = false;
         background(255);
         tool = new Tool();
         canvas = new DrawingCanvas();
-        //eventually this will take in a canvas param as well :)
         delegate = new TouchDelegate(tool, canvas);
     }
 
@@ -113,10 +112,6 @@ class Sketch extends PApplet {
     @Override
     public void touchEnded() {
         delegate.touchEnded();
-//        if (touches.length <= 2) {
-//            tool.removeThirdButton();
-//        }
-//        tool.setActiveButtons(false);
 
     }
 
@@ -124,9 +119,7 @@ class Sketch extends PApplet {
         int color, brushMinSize, brushMaxSize, brushSize;
         boolean brushSizeVariable, isOpaque;
         PImage brushIcon;
-
-//        Brush()
-//        }
+        
 
         void setColor(int color) {
             this.color = color;
@@ -150,7 +143,6 @@ class Sketch extends PApplet {
             brushMinSize = 7;
             brushMaxSize = 20;
             isOpaque = true;
-//            brushIcon
         }
     }
 
@@ -170,15 +162,11 @@ class Sketch extends PApplet {
         boolean isCurrentStroke;
         boolean internalCurrentStroke;
         ArrayList<PVector> drawingPoints;
-        PVector oldC, oldD, finalPoint;
+        PVector oldC, oldD, p4;
         ArrayList<Float> velocities;
         ArrayList<PVector> smoothedPoints;
         ArrayList<Brush> brushes;
         Brush currBrush;
-//        BrushSelector selector;
-
-//        ArrayList
-//        int width, height;
 
         DrawingCanvas() {
             canvars = createGraphics(displayWidth, displayHeight, P3D);
@@ -247,19 +235,18 @@ class Sketch extends PApplet {
             PVector D = PVector.sub(p1, PVector.mult(perpendicular, p1.z));
 
             if (internalCurrentStroke) {
-//                println("yes");
                 A = oldC;
                 B = oldD;
             }
 
-
+            //render to canvars, a pgraphics object.
             canvars.beginDraw();
             canvars.fill(currBrush.color);
             canvars.noStroke();
             canvars.triangle(A.x, A.y, B.x, B.y, C.x, C.y);
             canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
             if (currBrush.isOpaque) {
-                canvars.ellipse(finalPoint.x, finalPoint.y, finalPoint.z * 2, finalPoint.z * 2);
+                canvars.ellipse(p4.x, p4.y, p4.z * 2, p4.z * 2);
             }
 
             canvars.endDraw();
@@ -276,23 +263,27 @@ class Sketch extends PApplet {
             if (drawingPoints.size() > 2) {
                 ArrayList<PVector> smoothedPoints = new ArrayList<>();
                 for (int i = 2; i < drawingPoints.size(); i++) {
+                    //retrive last 3 points in the array
                     PVector prev2 = drawingPoints.get(i - 2);
                     PVector prev1 = drawingPoints.get(i - 1);
                     PVector currP = drawingPoints.get(i);
-
+                    
+                    //calculate the midpoint by finding the vectors between them and multiplying by scalar 0.5
                     PVector m1 = PVector.add(prev1, prev2).mult((float) 0.5);
                     PVector m2 = PVector.add(currP, prev1).mult((float) 0.5);
 
-                    int segmentDistance = 2;
+                    int numSegments = 2;
                     float distance = abs(new PVector(m1.x - m2.x, m1.y - m2.y).mag());
-                    int numberOfSegments = min(128, max(floor(distance / segmentDistance), 64));
-
+                    //here we define how many points we want based on the distance the touch traveled.
+                    int numberOfSegments = min(128, max(floor(distance / numSegments), 64));
                     float t = 0;
                     float step = 1 / numberOfSegments;
-
                     for (int j = 0; j < numberOfSegments; j++) {
                         PVector newPoint;
+                        //here we create a vector at a critical point using the quadratic bezier formula.
                         newPoint = PVector.add(PVector.add(PVector.mult(m1, pow(1-t, 2)), PVector.mult(prev1, 2 * (1-t) * t)), PVector.mult(m2, t * t));
+
+                        //here we see if we need change the brush due to speed size depending on if its vairable or not
                         if (currBrush.brushSizeVariable) {
                             newPoint.z = pow(1 - t, 2) * ((prev1.z + prev2.z) * (float) 0.5) + 2 * (1 - t) * t * prev1.z + t * t * ((currP.z + prev1.z) * (float) 0.5);
                         }
@@ -302,13 +293,15 @@ class Sketch extends PApplet {
                         t += step;
                     }
 
-                    finalPoint = new PVector();
-                    finalPoint.x = m2.x;
-                    finalPoint.y = m2.y;
-                    finalPoint.z = (currP.z + prev1.z) * (float) 0.5;
-                    smoothedPoints.add(finalPoint);
+                    //here we write the final point
+                    p4 = new PVector();
+                    p4.x = m2.x;
+                    p4.y = m2.y;
+                    p4.z = (currP.z + prev1.z) * (float) 0.5;
+                    smoothedPoints.add(p4);
 
                 }
+                //we remove from the original drawing points all the points we just drew
                 drawingPoints.subList(0, drawingPoints.size() - 2).clear();
                 return smoothedPoints;
 
@@ -319,11 +312,13 @@ class Sketch extends PApplet {
             }
         }
 
+        //this function calculates the width of the stroke based on speed.
         float getSize(PVector direction) {
             float speed = direction.mag();
             float size = speed / 30;
             size = constrain(size, 1, 40);
 
+            //we weight the size based on the previous velocity in the array so that we don't get jumps in stroke size
             if (velocities.size() > 1) {
                 size *= 0.2 + velocities.get(velocities.size() - 1) * 0.8;
             }
@@ -334,6 +329,8 @@ class Sketch extends PApplet {
 
             return size;
         }
+
+        //code for drawing to screen
         void renderToScreen() {
             image(canvars,0, 0);
 
@@ -377,15 +374,10 @@ class Sketch extends PApplet {
                 tool.makeThirdButtonAvaliable();
             }
 
-
-//            if (tool.fingsInTool().size() != touches.length) {
-//                println("settring treu");
-//                canvas.setIsCurrentStroke(true);
-//            }
-
         }
 
         void touchEvent() {
+            //here we sort touches for the canvas and the tool.
             ArrayList<TouchEvent.Pointer> canvTouches = new ArrayList<>();
             ArrayList<TouchEvent.Pointer> toolTouches = new ArrayList<>();
             ArrayList<Integer> toolTouchIndexes = tool.fingsInTool();
@@ -396,7 +388,6 @@ class Sketch extends PApplet {
                 }
                 else {
                     canvTouches.add(touches[i]);
-//                    canvas.addStroke(true, touches[i]);
                 }
             }
 
@@ -543,12 +534,10 @@ class Sketch extends PApplet {
             int i = 0;
             textSize(76);
             textAlign(LEFT, TOP);
-//            fill(0);
-//            text("zone:  " + selector.brushZone, 20, 20);
+
             for (ToolButton currButton : buttonList) {
                 currButton.render();
-//                fill(255);
-//                text("" + i, currButton.x, currButton.y);
+
                 i++;
 
             }
@@ -561,11 +550,12 @@ class Sketch extends PApplet {
 
 
                     if (selectionActive) {
+                        //render the selector here!
                         selector.render(initialVec, circle.getcX(), circle.getcY());
                         selector.updateSelectedBrush(circle.getcX(), circle.getcY(), degrees);
                         if (!(canvas.currBrush instanceof Eraser)) {
                             colorMode(HSB, 360, 100, 100);
-                            canvas.currBrush.setColor(color(map(circle.getcY(), 0, height, 0, 360), 100, 100));
+                            canvas.currBrush.setColor(color(map(circle.getcY(), 0, height, 0, 360), 70, 100));
                             colorMode(RGB, 255, 255, 255);
                         }
                     }
@@ -577,18 +567,6 @@ class Sketch extends PApplet {
                     line(0, 0, 0, circle.getRenderRadius() / 2);
                     popMatrix();
 
-//                    pushMatrix();
-//                    translate(circle.cX, circle.cY);
-//                    rotate(radians(90));
-//                    fill(0,255,0);
-//                    noStroke();
-//                    if (selectionActive) {
-//                        if (initialVec.heading() < currVec.heading())
-//                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), initialVec.heading(), currVec.heading(), PIE);
-//                        else
-//                            arc(0, 0, circle.getRenderRadius(), circle.getRenderRadius(), currVec.heading(), initialVec.heading(), PIE);
-//                    }
-//                    popMatrix();
                 }
 
             }
@@ -661,19 +639,28 @@ class Sketch extends PApplet {
             ToolButton indexButton = buttonList.get(1);
             ToolButton thumbButton = buttonList.get(2);
 
+            //if this is the first time reading, set the initial vector and old vector
             if (!b) {
+
+                //perpendicular vector to the one between index and thumb
                 initialVec = new PVector((indexButton.x - thumbButton.x), (indexButton.y - thumbButton.y));
                 oldDegrees = initialVec.heading();
                 selectionActive = false;
 
             }
+
             else {
+
                 currVec = new PVector(indexButton.x - thumbButton.x, (indexButton.y- thumbButton.y));
                 degrees =  (currVec.heading() - initialVec.heading());
 
+                //here we use the difference in rotation between frames to determine if the user intends to open
+                //the menue
                 degreesPerFrame = abs(degrees(degrees - oldDegrees));
-//                println(degreesPerFrame);
+
+
                 if (!selectionActive) {
+                    //determine if the menue should open if rotational velocity is high enough or if you turn enough
                     if ((degreesPerFrame > 3 && degreesPerFrame < 50) || (degrees(degrees) > 15 || degrees(degrees) < -15)) {
 
                         selectionActive = true;
@@ -739,7 +726,6 @@ class Sketch extends PApplet {
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
-//            stroke(0, 255, 0);
             line(0, 0, 0, maxRenderRadius);
 
 
@@ -761,7 +747,6 @@ class Sketch extends PApplet {
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
-//            stroke(255, 0, 0);
             line(0,0, 0, maxRenderRadius);
             rotate(separationAngle);
             stroke(0);
