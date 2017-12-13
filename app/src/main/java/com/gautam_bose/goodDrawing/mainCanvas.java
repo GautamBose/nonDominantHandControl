@@ -199,7 +199,6 @@ class Sketch extends PApplet {
             oldD = D.copy();
 
 
-
         }
 
 
