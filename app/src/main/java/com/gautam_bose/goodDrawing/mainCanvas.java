@@ -2,6 +2,7 @@ package com.gautam_bose.goodDrawing;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.text.method.Touch;
 import android.view.MotionEvent;
@@ -15,6 +16,7 @@ import processing.android.CompatUtils;
 import processing.android.PFragment;
 import processing.core.PApplet;
 import processing.core.PGraphics;
+import processing.core.PImage;
 import processing.core.PVector;
 import processing.event.TouchEvent;
 
@@ -24,9 +26,7 @@ import processing.event.TouchEvent;
 @todo code regarding pens <= break this down more
 @todo color changing
 @todo stroke changing
-@todo fix placmeent of third orb
 @todo canvas zooming and such
-@todo finish three finger tool picker
 */
 
 public class mainCanvas extends AppCompatActivity {
@@ -119,26 +119,59 @@ class Sketch extends PApplet {
 
     }
 
-//    class Brush {
-//        int a = color(50, 50, 50);
-//        Brush() {
-//
-//
+    abstract class Brush {
+        int color, brushMinSize, brushMaxSize, brushSize;
+        boolean brushSizeVariable, isOpaque;
+        PImage brushIcon;
+
+//        Brush()
 //        }
-////
-////        draw(float x, float y) {
-////            ellipse()
-////        }
-//    }
+    }
+
+    class Eraser extends Brush {
+        Eraser() {
+            this.color = color(255, 255, 255);
+            brushSizeVariable = false;
+            brushSize = 40;
+            isOpaque = true;
+//            brushIcon = loadImage(Environment.getExternalStorageDirectory().getPath());
+        }
+    }
+
+    class Pen extends Brush {
+        Pen() {
+            this.color = color(0,0,0);
+            brushSizeVariable = true;
+            brushMinSize = 7;
+            brushMaxSize = 20;
+            isOpaque = true;
+//            brushIcon
+        }
+    }
+
+    class Marker extends Brush {
+        Marker() {
+            this.color = color(150,150,150);
+            brushSizeVariable = true;
+            brushMinSize = 20;
+            brushMaxSize = 40;
+            isOpaque = true;
+
+        }
+    }
 
     class DrawingCanvas {
         PGraphics canvars;
         boolean isCurrentStroke;
         boolean internalCurrentStroke;
         ArrayList<PVector> drawingPoints;
-        PVector oldC, oldD;
+        PVector oldC, oldD, finalPoint;
         ArrayList<Float> velocities;
         ArrayList<PVector> smoothedPoints;
+        ArrayList<Brush> brushes;
+        Brush currBrush;
+//        BrushSelector selector;
+
 //        ArrayList
 //        int width, height;
 
@@ -148,25 +181,38 @@ class Sketch extends PApplet {
             internalCurrentStroke = false;
             drawingPoints = new ArrayList<>();
             velocities = new ArrayList<>();
+            brushes = new ArrayList<>();
+            brushes.add(new Eraser());
+            brushes.add(new Pen());
+            brushes.add(new Marker());
+            this.setCurrentBrush(tool.getSelector().brushZone);
 
             oldC = new PVector();
             oldD = new PVector();
 
         }
 
+        void setCurrentBrush(int brushZone) {
+            currBrush = brushes.get(brushZone);
+
+        }
         void addStroke(boolean currStroke, TouchEvent.Pointer penTip) {
-            if (drawingPoints.size() >= 2) {
-                PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
-                PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
+            if (currBrush.brushSizeVariable) {
+                if (drawingPoints.size() >= 2) {
+                    PVector p0 = drawingPoints.get(drawingPoints.size() - 2);
+                    PVector p1 = drawingPoints.get(drawingPoints.size() - 1);
 
 //            find perpendicular vector to direction of points
-                PVector direction = new PVector(p0.x - p1.x, p0.y -p1.y);
-                drawingPoints.add(new PVector(penTip.x, penTip.y, this.getSize(direction)));
+                    PVector direction = new PVector(p0.x - p1.x, p0.y - p1.y);
+                    drawingPoints.add(new PVector(penTip.x, penTip.y, this.getSize(direction)));
 
+                } else {
+                    drawingPoints.add(new PVector(penTip.x, penTip.y));
+                }
             }
 
             else {
-                drawingPoints.add(new PVector(penTip.x, penTip.y));
+                drawingPoints.add(new PVector(penTip.x, penTip.y, currBrush.brushSize));
             }
 //                println("calculateSmoothedPoints called");
              smoothedPoints = calculateSmoothLinePoints();
@@ -180,7 +226,6 @@ class Sketch extends PApplet {
         void renderToTexture() {
 
             if (smoothedPoints == null || !(smoothedPoints.size() >= 2)) return;
-            println("rendering~");
 //            println(smoothedPoints.size());
             PVector p0 = smoothedPoints.get(smoothedPoints.size() - 2);
             PVector p1 = smoothedPoints.get(smoothedPoints.size() - 1);
@@ -201,13 +246,16 @@ class Sketch extends PApplet {
                 A = oldC;
                 B = oldD;
             }
-//            else{println("no");}
+
 
             canvars.beginDraw();
-            canvars.fill(0);
+            canvars.fill(currBrush.color);
             canvars.noStroke();
             canvars.triangle(A.x, A.y, B.x, B.y, C.x, C.y);
             canvars.triangle(B.x, B.y, C.x, C.y, D.x, D.y);
+            if (currBrush.isOpaque) {
+                canvars.ellipse(finalPoint.x, finalPoint.y, finalPoint.z * 2, finalPoint.z * 2);
+            }
 
             canvars.endDraw();
 
@@ -232,7 +280,7 @@ class Sketch extends PApplet {
 
                     int segmentDistance = 2;
                     float distance = abs(new PVector(m1.x - m2.x, m1.y - m2.y).mag());
-                    int numberOfSegments = min(128, max(floor(distance / segmentDistance), 32));
+                    int numberOfSegments = min(128, max(floor(distance / segmentDistance), 64));
 
                     float t = 0;
                     float step = 1 / numberOfSegments;
@@ -240,13 +288,16 @@ class Sketch extends PApplet {
                     for (int j = 0; j < numberOfSegments; j++) {
                         PVector newPoint;
                         newPoint = PVector.add(PVector.add(PVector.mult(m1, pow(1-t, 2)), PVector.mult(prev1, 2 * (1-t) * t)), PVector.mult(m2, t * t));
-                        newPoint.z = pow(1 - t, 2) * ((prev1.z + prev2.z) * (float)0.5) + 2 * (1 - t) * t * prev1.z + t * t * ((currP.z + prev1.z) * (float)0.5);
+                        if (currBrush.brushSizeVariable) {
+                            newPoint.z = pow(1 - t, 2) * ((prev1.z + prev2.z) * (float) 0.5) + 2 * (1 - t) * t * prev1.z + t * t * ((currP.z + prev1.z) * (float) 0.5);
+                        }
+                        else {newPoint.z = currBrush.brushSize; }
 
                         smoothedPoints.add(newPoint);
                         t += step;
                     }
 
-                    PVector finalPoint = new PVector();
+                    finalPoint = new PVector();
                     finalPoint.x = m2.x;
                     finalPoint.y = m2.y;
                     finalPoint.z = (currP.z + prev1.z) * (float) 0.5;
@@ -265,14 +316,14 @@ class Sketch extends PApplet {
 
         float getSize(PVector direction) {
             float speed = direction.mag();
-            float size = speed / 20;
+            float size = speed / 30;
             size = constrain(size, 1, 40);
 
             if (velocities.size() > 1) {
                 size *= 0.2 + velocities.get(velocities.size() - 1) * 0.8;
             }
 
-            size = constrain(size, 7, 20);
+            size = constrain(size, currBrush.brushMinSize, currBrush.brushMaxSize);
 
             velocities.add(size);
 
@@ -285,7 +336,7 @@ class Sketch extends PApplet {
             internalCurrentStroke = false;
             drawingPoints.clear();
             velocities.clear();
-            smoothedPoints.clear();
+            if (smoothedPoints!= null) smoothedPoints.clear();
         }
     }
     //this class delegates touches to either the tool or the drawing canvas
@@ -306,11 +357,13 @@ class Sketch extends PApplet {
             if (tool.fingsInTool().size() <= 2) {
                 tool.removeThirdButton();
             }
+
             tool.setActiveButtons(false);
 
-            if (tool.fingsInTool().size() == touches.length) {
-                canvas.setIsCurrentStroke(false);
-            }
+//            if (tool.fingsInTool().size() == touches.length) {
+//                canvas.setIsCurrentStroke(false);
+//            }
+
 
         }
 
@@ -319,9 +372,10 @@ class Sketch extends PApplet {
                 tool.makeThirdButtonAvaliable();
             }
 
-            if (tool.fingsInTool().size() != touches.length) {
-                canvas.setIsCurrentStroke(true);
-            }
+//            if (tool.fingsInTool().size() != touches.length) {
+//                println("settring treu");
+//                canvas.setIsCurrentStroke(true);
+//            }
 
         }
 
@@ -341,8 +395,11 @@ class Sketch extends PApplet {
             }
 
             if (canvTouches.size() > 0) {
-                canvas.addStroke(isCurrentStroke, canvTouches.get(0));
                 canvas.setIsCurrentStroke(true);
+                canvas.addStroke(isCurrentStroke, canvTouches.get(0));
+            }
+            else {
+                canvas.setIsCurrentStroke(false);
             }
 
             tool.positionTool(toolTouches);
@@ -424,7 +481,7 @@ class Sketch extends PApplet {
         private PVector initialVec, currVec;
         private float oldDegrees, degrees, degreesPerFrame;
         private boolean selectionActive;
-        private BrushSelector selector;
+        protected BrushSelector selector;
 
         Tool() {
             buttRadius = 150;
@@ -436,6 +493,16 @@ class Sketch extends PApplet {
             selectionActive = false;
 
         }
+//
+//        boolean isFourthTouchInRadius(Pointer) {
+//            if (this.selectionActive) {
+//
+//            }
+//        }
+
+        BrushSelector getSelector() {
+            return selector;
+        }
 
         void makeThirdButtonAvaliable() {
             if (this.fingsInTool().size() == 2 && buttonList.size() < 3) {
@@ -444,6 +511,12 @@ class Sketch extends PApplet {
                 buttonList.add(new ToolButton(auxButton1.x, auxButton1.y + 300, buttRadius, false));
             }
         }
+//
+//        void makeFourthButtonAvaliable() {
+//            if (this.fingsInTool().size() == 3 && buttonList.size() < 4) {
+//
+//            }
+//        }
 
         void removeThirdButton() {
             if (buttonList.size() > 2) {
@@ -534,11 +607,34 @@ class Sketch extends PApplet {
 
         }
 
+//        boolean buttonNotNearOthers(ToolButton button) {
+//             for (ToolButton currButton : buttonList) {
+//                 if (currButton.getX() ==button.getX() && currButton.getY() == button.getY()) continue;
+//                 if (button.distance(button.getX(), button.getY(), currButton.getX(), currButton.getY()) <= buttRadius) {
+////                     println("button too close");
+//                     return true;
+//                 }
+//             }
+//             return false;
+//
+//        }
+
+        void resetButtonPos() {
+            buttonList.get(1).x = buttonList.get(0).x + buttRadius + 100;
+            buttonList.get(1).y = buttonList.get(0).y + buttRadius + 100;
+        }
+
         void positionTool(ArrayList<TouchEvent.Pointer> touches) {
             for (TouchEvent.Pointer currpointer : touches) {
                 for (ToolButton currButton : buttonList) {
-                    if (currButton.isOver(currpointer.x, currpointer.y)) {
-                        currButton.moveButton(currpointer.x, currpointer.y);
+                    if (currButton.isOver(currpointer.x, currpointer.y) ) {
+                        if (buttonList.get(0).distance(buttonList.get(0).getX(), buttonList.get(0).getY(), buttonList.get(1).getX(), buttonList.get(0).getY()) <= buttRadius) {
+                            resetButtonPos();
+                        }
+                        else {
+                            currButton.moveButton(currpointer.x, currpointer.y);
+                        }
+
                     }
 
                 }
@@ -548,13 +644,18 @@ class Sketch extends PApplet {
         void setActiveButtons(boolean isTouchStarted) {
             for (ToolButton currButton: buttonList) {
                 currButton.setIsActive(false);
-                int finalIndex = touches.length;
+                int finalIndex = fingsInTool().size();
+                ArrayList<TouchEvent.Pointer> toolTouches = new ArrayList<>();
+
+                for (int i: fingsInTool()) {
+                    toolTouches.add(touches[i]);
+                    }
 
                 //if the call is coming from touchEnded, ignore the last element of touches because it no longer is on the screen :<
-                if (isTouchStarted == false) finalIndex--;
+//                if (isTouchStarted == false) finalIndex--;
 
                 for (int i = 0; i <finalIndex; i++) {
-                    TouchEvent.Pointer currPointer = touches[i];
+                    TouchEvent.Pointer currPointer = toolTouches.get(i);
                     if (currButton.isOver(currPointer.x, currPointer.y)) {
                         currButton.setIsActive(true);
 
@@ -606,14 +707,14 @@ class Sketch extends PApplet {
             separationAngle = radians(-40);
             maxRenderRadius = 0;
             brushRegions = new float[3][2];
-            brushZone = -1;
+            brushZone = 1;
 
         }
 
         void updateSelectedBrush(float x, float y, float degrees) {
-//            println(brushRegions[0][0] + " " + currVector.heading() + " " + brushRegions[0][1]);
             if (radians(20) > degrees && degrees > radians(-20)) {
                brushZone = 1;
+
             }
 
             else if (radians(20) < degrees) {
@@ -623,6 +724,7 @@ class Sketch extends PApplet {
             else if (radians(-20) > degrees) {
                 brushZone = 0;
             }
+            canvas.setCurrentBrush(brushZone);
 
 
         }
@@ -642,7 +744,7 @@ class Sketch extends PApplet {
             fill(0,255,0);
             if (brushZone == 2) {
                 rotate(radians(90) + separationAngle);
-                fill(0,0,255);
+                fill(100,100,100, 65);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
@@ -653,18 +755,18 @@ class Sketch extends PApplet {
             rotate(separationAngle);
             if (brushZone == 1) {
                 rotate(radians(90) + separationAngle);
-                fill(0,0,255);
+                fill(100,100,100, 65);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
-            stroke(0, 0, 255);
             line(0,0, 0, maxRenderRadius);
 
 
             rotate(separationAngle);
             if (brushZone == 0) {
+
                 rotate(radians(90) + separationAngle);
-                fill(0,0,255);
+                fill(100,100,100, 65);
                 arc(0, 0, toolCircle.getRenderRadius(), toolCircle.getRenderRadius(), 0, -separationAngle, PIE);
                 rotate(radians(-90) - separationAngle);
             }
@@ -747,8 +849,8 @@ class Sketch extends PApplet {
 
         void render() {
             noFill();
-            stroke(255,0, 0);
 //            strokeWeight(strokeWeight);
+            stroke(50, 50, 50);
             renderRadius = radius * 2 + tool.getButtRadius() + selectionBonus;
             ellipse(cX, cY, renderRadius, renderRadius);
             if (tool.selectionActive && selectionBonus <= 300) selectionBonus += 15;
